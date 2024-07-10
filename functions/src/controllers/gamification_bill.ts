@@ -1,21 +1,21 @@
 import * as express from "express"
-import {db} from "../index"
-import {GamificationBill, ProductString} from "../types/gamificationBill"
-import {IndexType} from "../types/general_types"
+import { db } from "../index"
+import { GamificationBill, ProductString } from "../types/gamificationBill"
+import { IndexType } from "../types/general_types"
 import {
   CollectionReference,
   DocumentSnapshot,
   Timestamp,
 } from "firebase-admin/firestore"
-import {DecodedIdToken} from "firebase-admin/auth"
+import { DecodedIdToken } from "firebase-admin/auth"
 import {
   TimestampType,
   dateToTimestamp,
   timestampToDate,
 } from "../helpers/timestampToDate"
-import {Company} from "../types/company"
-import {getGamificationByCompanyId} from "./gamification"
-import {Gamification} from "../types/gamification"
+import { Company } from "../types/company"
+import { getGamificationByCompanyId } from "./gamification"
+import { Gamification } from "../types/gamification"
 
 type IndexBody = IndexType<Partial<GamificationBill> & ProductString>
 
@@ -49,10 +49,10 @@ gamification_bill.get(
 
     // Check if gamification bills exist
     if (gamification_bill.length === 0) {
-      response.status(404).send({data: "No gamification bill found"})
+      response.status(404).send({ data: "No gamification bill found" })
     }
     // Return gamification bills to the client
-    response.status(200).send({data: gamification_bill})
+    response.status(200).send({ data: gamification_bill })
   }
 )
 
@@ -165,10 +165,10 @@ gamification_bill.get(
 
     // If no gamification bills are found, send a 404 response
     if (gamification_bill.length === 0) {
-      response.status(404).send({data: "No gamification bill found"})
+      response.status(404).send({ data: "No gamification bill found" })
     } else {
       // If gamification bills are found, send them in the response
-      response.status(200).send({data: gamification_bill})
+      response.status(200).send({ data: gamification_bill })
     }
   }
 )
@@ -180,7 +180,7 @@ gamification_bill.get(
   "/gamification-bill/filtered",
   async (request: express.Request & { user?: DecodedIdToken }, response) => {
     // Destructure the company ID and other filter items from the request query
-    const {companyId, ...filterItems} = request.query as {
+    const { companyId, ...filterItems } = request.query as {
       companyId: string
       [key: string]: string
     }
@@ -196,7 +196,7 @@ gamification_bill.get(
 
     // If no company data is found, send a 404 response
     if (!companyData) {
-      response.status(404).send({data: "No company found"})
+      response.status(404).send({ data: "No company found" })
       return
     }
 
@@ -211,12 +211,12 @@ gamification_bill.get(
 
     // If no gamification bills are found, send a 404 response
     if (gamification_bills.length === 0) {
-      response.status(404).send({data: "No gamification bill found"})
+      response.status(404).send({ data: "No gamification bill found" })
       return
     }
 
     // If gamification bills are found, send them in the response
-    response.status(200).send({data: gamification_bills})
+    response.status(200).send({ data: gamification_bills })
   }
 )
 
@@ -224,28 +224,38 @@ gamification_bill.get(
 gamification_bill.get("/gamification-bill/:id", async (request, response) => {
   const id = request.params.id
   // Get gamification bill by id
-  const snapshot = (await db
+  const billSnapshot = (await db
     .collection(collection)
     .doc(id)
     .get()) as DocumentSnapshot<GamificationBill>
-  const data = snapshot.data()
-  const products = JSON.parse(data?.products_string as string)
-  const date = timestampToDate(data?.date as TimestampType)
 
-  const gamification_bill = {
-    _id: snapshot.id,
-    ...snapshot.data(),
-    products,
+  const data = billSnapshot.data()
+
+  const productsSnapshot = await billSnapshot.ref.collection("products").get()
+  const productsData = productsSnapshot.docs.map((productDoc) => ({
+    id: productDoc.id,
+    ...productDoc.data(),
+  }))
+  const billsWithProducts = { ...data, products: productsData }
+
+  // const products = JSON.parse(billsWithProducts?.products_string as string)
+
+  const date = timestampToDate(billsWithProducts?.date as TimestampType)
+
+  const gamification_bill: any = {
+    _id: billSnapshot.id,
+    ...billsWithProducts,
+    // products,
     date,
   }
   delete gamification_bill.products_string
 
   // Check if gamification bill exists
   if (!gamification_bill) {
-    response.status(404).send({data: "No gamification_bill found"})
+    response.status(404).send({ data: "No gamification_bill found" })
   }
   // Send gamification bill to the client
-  response.status(200).send({data: gamification_bill})
+  response.status(200).send({ data: gamification_bill })
 })
 
 // Get gamification bill count by company id
@@ -267,7 +277,7 @@ gamification_bill.get("/gamification_bill/count", async (request, response) => {
 
   const billsSnapShot = await billQuery.get()
 
-  return response.status(200).send({data: billsSnapShot.size})
+  return response.status(200).send({ data: billsSnapShot.size })
 })
 
 // Create gamification bill
@@ -296,7 +306,7 @@ gamification_bill.post(
         data: `Gamification bill for gamification ${gam_id} was created`,
       })
     } catch (error) {
-      response.status(500).send({data: "Gamification bill cannot be created"})
+      response.status(500).send({ data: "Gamification bill cannot be created" })
     }
   }
 )
@@ -313,7 +323,7 @@ gamification_bill.patch(
     const bill = snapshot.data()
     // If the gamification bill does not exist, send a 404 response
     if (!snapshot.exists) {
-      response.status(404).send({data: "No gamification bill found"})
+      response.status(404).send({ data: "No gamification bill found" })
       return
     }
 
@@ -364,12 +374,12 @@ gamification_bill.patch(
     await db
       .collection(collection)
       .doc(billId)
-      .update({...body, products_string: JSON.stringify(productList)})
+      .update({ ...body, products_string: JSON.stringify(productList) })
       .catch(() => {
         // If the update fails, send a 500 response
         response
           .status(500)
-          .send({data: "gamification bill can not be updated"})
+          .send({ data: "gamification bill can not be updated" })
       })
 
     // Fetch the updated gamification bill from the database
@@ -413,14 +423,14 @@ gamification_bill.delete(
       // Check if gamification bill exists
       const snapshot = await db.collection(collection).doc(billId).get()
       if (!snapshot.exists) {
-        response.status(404).send({data: "No gamification bill found"})
+        response.status(404).send({ data: "No gamification bill found" })
       }
       // Delete gamification bill
       db.collection(collection).doc(billId).delete()
       // Send response to the client
-      response.status(204).send({data: "Gamification bill was deleted"})
+      response.status(204).send({ data: "Gamification bill was deleted" })
     } catch (error) {
-      response.status(500).send({data: "Gamification bill cannot be deleted"})
+      response.status(500).send({ data: "Gamification bill cannot be deleted" })
     }
   }
 )
@@ -436,7 +446,7 @@ export const getBillByGamificationId = async (
   gamification_id: number | string,
   filters: { [key: string]: string } = {}
 ) => {
-  const {transactionId, startDate, endDate, receiptNumber, status, isMarked} =
+  const { transactionId, startDate, endDate, receiptNumber, status, isMarked } =
     filters
 
   // Start with a query for gamification bills with the provided gamification id
