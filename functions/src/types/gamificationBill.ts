@@ -22,7 +22,7 @@ interface Product {
 }
 
 export type ProductString = {
-  product_index?: string
+  product_id?: string
 }
 
 export interface GamificationBill {
